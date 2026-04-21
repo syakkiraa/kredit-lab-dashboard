@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 export default function NewCasePage() {
   const router = useRouter();
 
+  const [ssmId, setSsmId] = useState("");
   const [clientName, setClientName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [email, setEmail] = useState("");
@@ -39,6 +40,7 @@ export default function NewCasePage() {
       {
         client_name: clientName,
         company_name: companyName,
+        ssm_registration_id: ssmId,
         email,
         phone,
         industry,
@@ -47,7 +49,12 @@ export default function NewCasePage() {
         requested_amount: Number(requestedAmount),
         loan_purpose: loanPurpose,
         initial_notes: initialNotes,
+        case_code: `CASE-${Date.now()}`,
+        status: "New",
+        assigned_to: "Admin User",
+        updated_at: new Date().toISOString(),
         created_by: user.id,
+
       },
     ]);
 
@@ -92,6 +99,13 @@ export default function NewCasePage() {
                 required
               />
 
+              <input
+              placeholder="SSM Registration ID"
+              value={ssmId}
+              onChange={(e) => setSsmId(e.target.value)}
+              className="border p-3 rounded-xl"
+              />
+                          
               <input
                 placeholder="Email"
                 value={email}
