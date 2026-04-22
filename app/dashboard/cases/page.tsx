@@ -8,37 +8,48 @@ import { supabase } from "@/lib/supabase";
 type CaseItem = {
   id: string;
   case_code: string | null;
-  company_name: string;
-  client_name: string;
-  email: string;
-  industry: string;
-  requested_amount: number;
+  company_name: string | null;
+  client_name: string | null;
+  email?: string | null;
+  client_email?: string | null;
+  industry: string | null;
+  requested_amount?: number | null;
+  loan_amount?: number | null;
   status: string | null;
   assigned_to: string | null;
-  updated_at: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export default function CasesPage() {
   const router = useRouter();
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
     const fetchCases = async () => {
+      setLoading(true);
+      setErrorMsg("");
+
       const { data, error } = await supabase
         .from("cases")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("updated_at", { ascending: false });
 
       console.log("CASES DATA:", data);
       console.log("CASES ERROR:", error);
 
-      if (!error && data) {
-        setCases(data);
+      if (error) {
+        setErrorMsg(error.message);
+        setCases([]);
+        setLoading(false);
+        return;
       }
 
+      setCases((data as CaseItem[]) || []);
       setLoading(false);
     };
 
@@ -47,21 +58,26 @@ export default function CasesPage() {
 
   const filteredCases = useMemo(() => {
     return cases.filter((item) => {
-      const matchesSearch =
-        item.company_name?.toLowerCase().includes(search.toLowerCase()) ||
-        item.client_name?.toLowerCase().includes(search.toLowerCase()) ||
-        item.email?.toLowerCase().includes(search.toLowerCase()) ||
-        item.case_code?.toLowerCase().includes(search.toLowerCase());
+      const emailValue = item.email || item.client_email || "";
+      const codeValue = item.case_code || "";
+      const companyValue = item.company_name || "";
+      const clientValue = item.client_name || "";
 
-      const matchesStatus = statusFilter
-        ? item.status === statusFilter
-        : true;
+      const matchesSearch =
+        companyValue.toLowerCase().includes(search.toLowerCase()) ||
+        clientValue.toLowerCase().includes(search.toLowerCase()) ||
+        emailValue.toLowerCase().includes(search.toLowerCase()) ||
+        codeValue.toLowerCase().includes(search.toLowerCase());
+
+      const matchesStatus = statusFilter ? item.status === statusFilter : true;
 
       return matchesSearch && matchesStatus;
     });
   }, [cases, search, statusFilter]);
 
-  const uniqueStatuses = [...new Set(cases.map((item) => item.status).filter(Boolean))];
+  const uniqueStatuses = [
+    ...new Set(cases.map((item) => item.status).filter(Boolean)),
+  ];
 
   const getStatusStyles = (status: string | null) => {
     switch (status) {
@@ -78,15 +94,15 @@ export default function CasesPage() {
     }
   };
 
-  const formatDate = (value: string | null) => {
+  const formatDate = (value: string | null | undefined) => {
     if (!value) return "-";
     return new Date(value).toLocaleDateString();
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+  const formatCurrency = (amount: number | null | undefined) => {
+    return new Intl.NumberFormat("en-MY", {
       style: "currency",
-      currency: "USD",
+      currency: "MYR",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount || 0);
@@ -155,6 +171,12 @@ export default function CasesPage() {
                     Loading...
                   </td>
                 </tr>
+              ) : errorMsg ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-6 text-sm text-red-600">
+                    {errorMsg}
+                  </td>
+                </tr>
               ) : filteredCases.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-6 text-sm text-slate-500">
@@ -162,49 +184,55 @@ export default function CasesPage() {
                   </td>
                 </tr>
               ) : (
-                filteredCases.map((item) => (
-                  <tr
-                    key={item.id}
-                    onClick={() => router.push(`/dashboard/cases/${item.id}`)}
-                    className="cursor-pointer border-t border-slate-200 text-sm transition hover:bg-slate-50"
-                  >
-                    <td className="px-4 py-4">
-                      <div className="font-semibold text-slate-900">
-                        {item.company_name}
-                      </div>
-                      <div className="text-xs text-slate-500">
-                        {item.case_code || item.id.slice(0, 8)}
-                      </div>
-                    </td>
+                filteredCases.map((item) => {
+                  const emailValue = item.email || item.client_email || "-";
+                  const amountValue = item.requested_amount ?? item.loan_amount ?? 0;
+                  const updatedValue = item.updated_at || item.created_at || null;
 
-                    <td className="px-4 py-4">
-                      <div className="font-medium text-slate-900">
-                        {item.client_name}
-                      </div>
-                      <div className="text-xs text-slate-500">{item.email}</div>
-                    </td>
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => router.push(`/dashboard/cases/${item.id}`)}
+                      className="cursor-pointer border-t border-slate-200 text-sm transition hover:bg-slate-50"
+                    >
+                      <td className="px-4 py-4">
+                        <div className="font-semibold text-slate-900">
+                          {item.company_name || "-"}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {item.case_code || item.id.slice(0, 8)}
+                        </div>
+                      </td>
 
-                    <td className="px-4 py-4">{item.industry}</td>
+                      <td className="px-4 py-4">
+                        <div className="font-medium text-slate-900">
+                          {item.client_name || "-"}
+                        </div>
+                        <div className="text-xs text-slate-500">{emailValue}</div>
+                      </td>
 
-                    <td className="px-4 py-4 font-medium text-slate-900">
-                      {formatCurrency(item.requested_amount)}
-                    </td>
+                      <td className="px-4 py-4">{item.industry || "-"}</td>
 
-                    <td className="px-4 py-4">
-                      <span
-                        className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${getStatusStyles(
-                          item.status
-                        )}`}
-                      >
-                        {item.status || "New"}
-                      </span>
-                    </td>
+                      <td className="px-4 py-4 font-medium text-slate-900">
+                        {formatCurrency(amountValue)}
+                      </td>
 
-                    <td className="px-4 py-4">{item.assigned_to || "-"}</td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-medium ${getStatusStyles(
+                            item.status
+                          )}`}
+                        >
+                          {item.status || "New"}
+                        </span>
+                      </td>
 
-                    <td className="px-4 py-4">{formatDate(item.updated_at)}</td>
-                  </tr>
-                ))
+                      <td className="px-4 py-4">{item.assigned_to || "-"}</td>
+
+                      <td className="px-4 py-4">{formatDate(updatedValue)}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

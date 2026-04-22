@@ -117,25 +117,6 @@ export default function LoginPage() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
-
-          <div className="mt-6 rounded-xl bg-slate-100 p-4">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Demo Credentials
-            </h3>
-
-            <div className="mt-3 space-y-1 text-sm text-slate-600">
-              <p>
-                <span className="font-semibold text-slate-800">Admin:</span>{" "}
-                admin@kreditlab.com / admin123
-              </p>
-              <p>
-                <span className="font-semibold text-slate-800">
-                  Consultant:
-                </span>{" "}
-                consultant@kreditlab.com / consultant123
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </main>
