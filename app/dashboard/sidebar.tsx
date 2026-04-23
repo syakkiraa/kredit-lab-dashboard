@@ -66,13 +66,12 @@ export function Sidebar() {
   return (
     <aside className="flex h-screen w-64 flex-col border-r border-slate-800 bg-[#021a2d] text-white">
       {/* Top */}
-      <div className="flex items-center gap-3 border-b border-slate-800 px-5 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-400 text-slate-900">
-          <FileText className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-lg font-semibold">Kredit Lab</p>
-        </div>
+      <div className="flex items-center justify-start border-b border-slate-800 px-5 py-6">
+        <img
+          src="/logo-dark.png"
+          alt="Company Logo"
+          className="h-14 w-auto max-w-[180px] object-contain"
+        />
       </div>
 
       {/* Main nav */}

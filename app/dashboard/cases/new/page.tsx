@@ -128,13 +128,27 @@ export default function NewCasePage() {
             <h2 className="text-lg font-semibold">Business Details</h2>
 
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <input
-                placeholder="Industry"
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                className="border p-3 rounded-xl"
-                required
-              />
+            <select
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+              className="border p-3 rounded-xl bg-white"
+              required
+            >
+              <option value="">Select industry</option>
+              <option value="Technology">Technology</option>
+              <option value="Healthcare">Healthcare</option>
+              <option value="Finance">Finance</option>
+              <option value="Manufacturing">Manufacturing</option>
+              <option value="Retail">Retail</option>
+              <option value="Food & Beverage">Food & Beverage</option>
+              <option value="Agriculture">Agriculture</option>
+              <option value="Construction">Construction</option>
+              <option value="Real Estate">Real Estate</option>
+              <option value="Transportation">Transportation</option>
+              <option value="Energy">Energy</option>
+              <option value="Education">Education</option>
+              <option value="Other">Other</option>
+            </select>
 
               <input
                 type="number"
@@ -168,13 +182,22 @@ export default function NewCasePage() {
                 required
               />
 
-              <input
-                placeholder="Loan Purpose"
-                value={loanPurpose}
-                onChange={(e) => setLoanPurpose(e.target.value)}
-                className="border p-3 rounded-xl"
-                required
-              />
+            <select
+              value={loanPurpose}
+              onChange={(e) => setLoanPurpose(e.target.value)}
+              className="border p-3 rounded-xl bg-white"
+              required
+            >
+              <option value="">Select purpose</option>
+              <option value="Working Capital">Working Capital</option>
+              <option value="Business Expansion">Business Expansion</option>
+              <option value="Equipment Purchase">Equipment Purchase</option>
+              <option value="Real Estate">Real Estate</option>
+              <option value="Acquisition">Acquisition</option>
+              <option value="Debt Refinancing">Debt Refinancing</option>
+              <option value="Inventory">Inventory</option>
+              <option value="Other">Other</option>
+            </select>
 
               <textarea
                 placeholder="Notes..."

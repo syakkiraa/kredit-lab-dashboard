@@ -40,23 +40,22 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-[#031b2f] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center justify-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#48c7ba]">
-            <FileText className="h-6 w-6 text-[#031b2f]" />
-          </div>
+        <div className="mb-6 flex flex-col items-center justify-center gap-2">
+          <img
+            src="/logo-dark.png"
+            alt="Company Logo"
+            className="h-20 w-auto"
+          />
 
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-white">
-              Kredit Lab
-            </h1>
-            <p className="text-lg text-slate-400">Consulting System</p>
-          </div>
+          <p className="text-lg text-slate-400">
+            Capital Island Sdn Bhd
+          </p>
         </div>
 
         <div className="rounded-2xl bg-white p-7 shadow-2xl">
           <div className="mb-7 text-center">
             <h2 className="text-4xl font-bold text-slate-900">Welcome back</h2>
-            <p className="mt-3 text-lg text-slate-500">
+            <p className="mt-3 text-sm text-slate-500">
               Sign in to your account to continue
             </p>
           </div>

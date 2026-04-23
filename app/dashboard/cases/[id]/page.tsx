@@ -4,6 +4,17 @@ import { useEffect, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import {
+  Building2,
+  User,
+  Mail,
+  Phone,
+  CalendarDays,
+  CircleDot,
+  Pencil,
+  ClipboardList,
+  BarChart3,
+} from "lucide-react";
 
 type CaseItem = {
   id: string;
@@ -22,6 +33,7 @@ type CaseItem = {
   initial_notes: string | null;
   annual_revenue: number | null;
   employee_count: number | null;
+  created_at?: string | null;
 };
 
 type TabKey =
@@ -83,15 +95,15 @@ export default function CaseDetailPage() {
   };
 
   const formatCurrency = (amount: number | null) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-MY", {
       style: "currency",
-      currency: "USD",
+      currency: "MYR",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount || 0);
   };
 
-  const formatDate = (value: string | null) => {
+  const formatDate = (value: string | null | undefined) => {
     if (!value) return "-";
     return new Date(value).toLocaleDateString();
   };
@@ -116,12 +128,11 @@ export default function CaseDetailPage() {
 
   return (
     <main className="min-h-screen bg-slate-100 p-6">
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-6xl">
         {loading ? (
           <div className="rounded-2xl bg-white p-6 shadow-sm">Loading...</div>
         ) : (
           <>
-            {/* Top back row */}
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <Link
                 href="/dashboard/cases"
@@ -132,24 +143,26 @@ export default function CaseDetailPage() {
 
               <div className="flex flex-wrap items-center gap-3">
                 <span
-                  className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${getStatusStyles(caseData?.status ?? null)}`}
+                  className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${getStatusStyles(
+                    caseData?.status ?? null
+                  )}`}
                 >
                   {caseData?.status || "New"}
                 </span>
 
-                <span className="text-lg font-semibold text-slate-900">
+                <span className="text-3xl font-bold text-slate-900">
                   {formatCurrency(caseData?.requested_amount || 0)}
                 </span>
 
-                <button className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <button className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  <Pencil className="h-4 w-4" />
                   Edit
                 </button>
               </div>
             </div>
 
-            {/* Header card */}
-            <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h1 className="text-2xl font-bold text-slate-900">
+            <div className="mb-4">
+              <h1 className="text-3xl font-bold text-slate-900">
                 {caseData?.company_name}
               </h1>
               <p className="mt-1 text-sm text-slate-500">
@@ -157,162 +170,312 @@ export default function CaseDetailPage() {
               </p>
             </div>
 
-            {/* Tabs */}
-            <div className="space-y-6">
-              <div className="flex flex-wrap gap-2 rounded-2xl bg-slate-200 p-2">
-                {renderTabButton("overview", "Overview")}
-                {renderTabButton("documents", "Documents")}
-                {renderTabButton("analysis", "Analysis")}
-                {renderTabButton("notes", "Notes")}
-                {renderTabButton("pipeline", "Pipeline")}
-                {renderTabButton("report", "Report")}
-              </div>
-
-              {/* OVERVIEW */}
-              {activeTab === "overview" && (
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <h2 className="text-lg font-semibold text-slate-900">
-                      Client Information
-                    </h2>
-                    <div className="mt-4 space-y-3 text-sm text-slate-700">
-                      <p>
-                        <span className="font-medium">Client Name:</span>{" "}
-                        {caseData?.client_name}
-                      </p>
-                      <p>
-                        <span className="font-medium">Company Name:</span>{" "}
-                        {caseData?.company_name}
-                      </p>
-                      <p>
-                        <span className="font-medium">Email:</span>{" "}
-                        {caseData?.email}
-                      </p>
-                      <p>
-                        <span className="font-medium">Phone:</span>{" "}
-                        {caseData?.phone || "-"}
-                      </p>
-                      <p>
-                        <span className="font-medium">SSM Registration ID:</span>{" "}
-                        {caseData?.ssm_registration_id || "-"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <h2 className="text-lg font-semibold text-slate-900">
-                      Business Details
-                    </h2>
-                    <div className="mt-4 space-y-3 text-sm text-slate-700">
-                      <p>
-                        <span className="font-medium">Industry:</span>{" "}
-                        {caseData?.industry}
-                      </p>
-                      <p>
-                        <span className="font-medium">Employee Count:</span>{" "}
-                        {caseData?.employee_count ?? "-"}
-                      </p>
-                      <p>
-                        <span className="font-medium">Annual Revenue:</span>{" "}
-                        {caseData?.annual_revenue
-                          ? formatCurrency(caseData.annual_revenue)
-                          : "-"}
-                      </p>
-                      <p>
-                        <span className="font-medium">Assigned To:</span>{" "}
-                        {caseData?.assigned_to || "-"}
-                      </p>
-                      <p>
-                        <span className="font-medium">Last Updated:</span>{" "}
-                        {formatDate(caseData?.updated_at || null)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:col-span-2">
-                    <h2 className="text-lg font-semibold text-slate-900">
-                      Financing Request
-                    </h2>
-                    <div className="mt-4 grid gap-4 md:grid-cols-2 text-sm text-slate-700">
-                      <p>
-                        <span className="font-medium">Requested Amount:</span>{" "}
-                        {formatCurrency(caseData?.requested_amount || 0)}
-                      </p>
-                      <p>
-                        <span className="font-medium">Loan Purpose:</span>{" "}
-                        {caseData?.loan_purpose || "-"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* DOCUMENTS */}
-              {activeTab === "documents" && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Documents
-                  </h2>
-                  <p className="mt-3 text-sm text-slate-600">
-                    No documents connected yet. Later this tab will show uploaded
-                    bank statements, financial statements, CCRIS/CTOS files, and
-                    supporting documents.
-                  </p>
-                </div>
-              )}
-
-              {/* ANALYSIS */}
-              {activeTab === "analysis" && caseData && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-slate-900">Analysis</h2>
-                  <p className="mt-3 text-sm text-slate-600">
-                    Analysis component not yet implemented.
-                  </p>
-                </div>
-              )}
-
-              {/* NOTES */}
-              {activeTab === "notes" && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-slate-900">Notes</h2>
-                  <p className="mt-3 text-sm text-slate-700">
-                    {caseData?.initial_notes || "No notes yet."}
-                  </p>
-                </div>
-              )}
-
-              {/* PIPELINE */}
-              {activeTab === "pipeline" && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-slate-900">
-                    Pipeline
-                  </h2>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {["Lead", "Docs Received", "Analysis", "Submission", "Approval", "Disbursement"].map(
-                      (step) => (
-                        <div
-                          key={step}
-                          className="rounded-full border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-700"
-                        >
-                          {step}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* REPORT */}
-              {activeTab === "report" && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-slate-900">Report</h2>
-                  <p className="mt-3 text-sm text-slate-600">
-                    This tab will later generate a consultant-ready report and bank
-                    recommendation summary.
-                  </p>
-                </div>
-              )}
+            <div className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-200 p-2">
+              {renderTabButton("overview", "Overview")}
+              {renderTabButton("documents", "Documents")}
+              {renderTabButton("analysis", "Analysis")}
+              {renderTabButton("notes", "Notes")}
+              {renderTabButton("pipeline", "Pipeline")}
+              {renderTabButton("report", "Report")}
             </div>
+
+            {activeTab === "overview" && caseData && (
+              <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+                <div className="space-y-6">
+                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-6 flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-cyan-500" />
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Company Information
+                      </h2>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div>
+                        <p className="text-sm text-slate-500">Company Name</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-900">
+                          {caseData.company_name}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-slate-500">Employee Count</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-900">
+                          {caseData.employee_count ?? "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-slate-500">Industry</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-900">
+                          {caseData.industry}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-slate-500">Loan Purpose</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-900">
+                          {caseData.loan_purpose || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-slate-500">Annual Revenue</p>
+                        <p className="mt-1 text-xl font-semibold text-slate-900">
+                          {caseData.annual_revenue
+                            ? formatCurrency(caseData.annual_revenue)
+                            : "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-slate-500">Loan Amount</p>
+                        <p className="mt-1 text-3xl font-bold text-slate-900">
+                          {formatCurrency(caseData.requested_amount)}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-6 flex items-center gap-2">
+                      <User className="h-5 w-5 text-cyan-500" />
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Contact Information
+                      </h2>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-4">
+                        <div className="rounded-xl bg-cyan-50 p-2">
+                          <User className="h-5 w-5 text-cyan-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">Client Name</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {caseData.client_name}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-4">
+                        <div className="rounded-xl bg-cyan-50 p-2">
+                          <Mail className="h-5 w-5 text-cyan-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">Email</p>
+                          <p className="break-all text-lg font-semibold text-slate-900">
+                            {caseData.email}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-4">
+                        <div className="rounded-xl bg-cyan-50 p-2">
+                          <Phone className="h-5 w-5 text-cyan-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-slate-500">Phone</p>
+                          <p className="text-lg font-semibold text-slate-900">
+                            {caseData.phone || "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-6 flex items-center gap-2">
+                      <ClipboardList className="h-5 w-5 text-cyan-500" />
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Registration Details
+                      </h2>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div>
+                        <p className="text-sm text-slate-500">
+                          SSM Registration ID
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-slate-900">
+                          {caseData.ssm_registration_id || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-sm text-slate-500">Case Code</p>
+                        <p className="mt-1 text-lg font-semibold text-slate-900">
+                          {caseData.case_code || caseData.id}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <div className="space-y-6">
+                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h2 className="mb-5 text-xl font-semibold text-slate-900">
+                      Case Summary
+                    </h2>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-slate-500">Pipeline Stage</p>
+                        <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium">
+                          Proposal
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-slate-500">Assigned To</p>
+                        <p className="font-medium text-slate-900">
+                          {caseData.assigned_to || "-"}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-slate-500">Status</p>
+                        <p className="font-medium text-slate-900">
+                          {caseData.status || "New"}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-5 flex items-center gap-2">
+                      <CalendarDays className="h-5 w-5 text-cyan-500" />
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Timeline
+                      </h2>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="flex gap-3">
+                        <CircleDot className="mt-1 h-4 w-4 text-cyan-500" />
+                        <div>
+                          <p className="font-semibold text-slate-900">Created</p>
+                          <p className="text-sm text-slate-500">
+                            {formatDate(caseData.created_at || caseData.updated_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <CircleDot className="mt-1 h-4 w-4 text-cyan-500" />
+                        <div>
+                          <p className="font-semibold text-slate-900">
+                            Last Updated
+                          </p>
+                          <p className="text-sm text-slate-500">
+                            {formatDate(caseData.updated_at)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="mb-5 flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-cyan-500" />
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Analysis Scores
+                      </h2>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div>
+                        <div className="mb-2 flex items-center justify-between text-sm">
+                          <span className="text-slate-600">Bank Statement</span>
+                          <span className="font-semibold text-slate-900">72</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-200">
+                          <div className="h-2 w-[72%] rounded-full bg-green-500" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="mb-2 flex items-center justify-between text-sm">
+                          <span className="text-slate-600">Credit Score</span>
+                          <span className="font-semibold text-slate-900">680</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-slate-200">
+                          <div className="h-2 w-full rounded-full bg-green-500" />
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "documents" && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Documents
+                </h2>
+                <p className="mt-3 text-sm text-slate-600">
+                  No documents connected yet. Later this tab will show uploaded
+                  bank statements, financial statements, CCRIS/CTOS files, and
+                  supporting documents.
+                </p>
+              </div>
+            )}
+
+            {activeTab === "analysis" && caseData && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Analysis
+                </h2>
+                <p className="mt-3 text-sm text-slate-600">
+                  Analysis component not yet implemented.
+                </p>
+              </div>
+            )}
+
+            {activeTab === "notes" && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">Notes</h2>
+                <p className="mt-3 text-sm text-slate-700">
+                  {caseData?.initial_notes || "No notes yet."}
+                </p>
+              </div>
+            )}
+
+            {activeTab === "pipeline" && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Pipeline
+                </h2>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {[
+                    "Lead",
+                    "Docs Received",
+                    "Analysis",
+                    "Submission",
+                    "Approval",
+                    "Disbursement",
+                  ].map((step) => (
+                    <div
+                      key={step}
+                      className="rounded-full border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-700"
+                    >
+                      {step}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "report" && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">Report</h2>
+                <p className="mt-3 text-sm text-slate-600">
+                  This tab will later generate a consultant-ready report and bank
+                  recommendation summary.
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>
