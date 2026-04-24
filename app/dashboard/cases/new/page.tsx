@@ -36,35 +36,49 @@ export default function NewCasePage() {
       return;
     }
 
-    const { error } = await supabase.from("cases").insert([
-      {
-        client_name: clientName,
-        company_name: companyName,
-        ssm_registration_id: ssmId,
-        email,
-        phone,
-        industry,
-        employee_count: employeeCount ? Number(employeeCount) : null,
-        annual_revenue: annualRevenue ? Number(annualRevenue) : null,
-        requested_amount: Number(requestedAmount),
-        loan_purpose: loanPurpose,
-        initial_notes: initialNotes,
-        case_code: `CASE-${Date.now()}`,
-        status: "New",
-        assigned_to: "Admin User",
-        updated_at: new Date().toISOString(),
-        created_by: user.id,
+      const caseCode = `CASE-${Date.now()}`;
 
-      },
-    ]);
+      const { error } = await supabase.from("cases").insert([
+        {
+          client_name: clientName,
+          company_name: companyName,
+          ssm_registration_id: ssmId,
+          email,
+          phone,
+          industry,
+          employee_count: employeeCount ? Number(employeeCount) : null,
+          annual_revenue: annualRevenue ? Number(annualRevenue) : null,
+          requested_amount: Number(requestedAmount),
+          loan_purpose: loanPurpose,
+          initial_notes: initialNotes,
+          case_code: caseCode,
+          status: "New",
+          assigned_to: "Admin User",
+          updated_at: new Date().toISOString(),
+          created_by: user.id,
+        },
+      ]);
 
-    if (error) {
-      setErrorMsg(error.message);
-      setLoading(false);
-      return;
-    }
+      if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+        return;
+      }
 
-    router.push("/dashboard/cases");
+      await fetch("/api/send-case-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          clientName,
+          companyName,
+          caseCode,
+        }),
+      });
+
+      router.push("/dashboard/cases");
   };
 
   return (
