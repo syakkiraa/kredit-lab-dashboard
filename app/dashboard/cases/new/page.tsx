@@ -22,21 +22,21 @@ export default function NewCasePage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleCreateCase = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
+    const handleCreateCase = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoading(true);
+      setErrorMsg("");
 
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData.user;
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      setErrorMsg("You must be logged in.");
-      setLoading(false);
-      return;
-    }
-
-      const caseCode = `CASE-${Date.now()}`;
+      if (userError || !user) {
+        setErrorMsg("You must be logged in first.");
+        setLoading(false);
+        return;
+      }
 
       const { error } = await supabase.from("cases").insert([
         {
@@ -51,7 +51,7 @@ export default function NewCasePage() {
           requested_amount: Number(requestedAmount),
           loan_purpose: loanPurpose,
           initial_notes: initialNotes,
-          case_code: caseCode,
+          case_code: `CASE-${Date.now()}`,
           status: "New",
           assigned_to: "Admin User",
           updated_at: new Date().toISOString(),
@@ -65,21 +65,8 @@ export default function NewCasePage() {
         return;
       }
 
-      await fetch("/api/send-case-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          clientName,
-          companyName,
-          caseCode,
-        }),
-      });
-
       router.push("/dashboard/cases");
-  };
+    };
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8">
