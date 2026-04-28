@@ -38,57 +38,55 @@ const handleCreateCase = async (e: React.FormEvent) => {
     return;
   }
 
-  // ✅ CREATE CASE CODE ONCE
-  const caseCode = `CASE-${Date.now()}`;
+    // ✅ CREATE CASE CODE ONCE
+    const caseCode = `CASE-${Date.now()}`;
 
-  const { error } = await supabase.from("cases").insert([
-    {
-      client_name: clientName,
-      company_name: companyName,
-      ssm_registration_id: ssmId,
-      email,
-      phone,
-      industry,
-      employee_count: employeeCount ? Number(employeeCount) : null,
-      annual_revenue: annualRevenue ? Number(annualRevenue) : null,
-      requested_amount: Number(requestedAmount),
-      loan_purpose: loanPurpose,
-      initial_notes: initialNotes,
-      case_code: caseCode, // ✅ use variable
-      status: "New",
-      assigned_to: "Admin User",
-      updated_at: new Date().toISOString(),
-      created_by: user.id,
-    },
-  ]);
+    const { error } = await supabase.from("cases").insert([
+      {
+        client_name: clientName,
+        company_name: companyName,
+        ssm_registration_id: ssmId,
+        email,
+        phone,
+        industry,
+        employee_count: employeeCount ? Number(employeeCount) : null,
+        annual_revenue: annualRevenue ? Number(annualRevenue) : null,
+        requested_amount: Number(requestedAmount),
+        loan_purpose: loanPurpose,
+        initial_notes: initialNotes,
+        case_code: caseCode,
+        status: "New",
+        assigned_to: "Admin User",
+        updated_at: new Date().toISOString(),
+        created_by: user.id,
+      },
+    ]);
 
-      // ❌ STOP if insert failed
-      if (error) {
-        setErrorMsg(error.message);
-        setLoading(false);
-        return;
-      }
+    if (error) {
+      setErrorMsg(error.message);
+      setLoading(false);
+      return;
+    }
 
-      // ✅ SEND EMAIL (ADD THIS PART)
-      try {
-        await fetch("/api/send-case-email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email,
-            clientName,
-            companyName,
-            caseCode, // ✅ reuse same code
-          }),
-        });
-      } catch (err) {
-        console.log("Email failed but case saved");
-      }
+    // ✅ SEND EMAIL (non-blocking)
+    fetch("/api/send-case-email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email,
+        clientName,
+        companyName,
+        caseCode,
+      }),
+    }).catch(() => {
+      console.log("Email failed but case saved");
+    });
 
-      // ✅ THEN REDIRECT
-      router.push("/dashboard/cases");
+    // ✅ REDIRECT
+    router.push("/dashboard/cases");
+    router.refresh();
     };
 
   return (
