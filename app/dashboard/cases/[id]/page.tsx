@@ -14,6 +14,10 @@ import {
   Pencil,
   ClipboardList,
   BarChart3,
+  Upload,
+  FileText,
+  Trash2,
+  Download,
 } from "lucide-react";
 
 type CaseItem = {
@@ -36,6 +40,16 @@ type CaseItem = {
   created_at?: string | null;
 };
 
+type CaseDocument = {
+  id: string;
+  case_id: string;
+  file_name: string;
+  file_path: string;
+  file_type: string | null;
+  document_type: string | null;
+  uploaded_at: string | null;
+};
+
 type TabKey =
   | "overview"
   | "documents"
@@ -51,6 +65,28 @@ export default function CaseDetailPage() {
   const [caseData, setCaseData] = useState<CaseItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+
+  const [documents, setDocuments] = useState<CaseDocument[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [documentType, setDocumentType] = useState("financial_statement");
+  const [documentError, setDocumentError] = useState("");
+
+  const fetchDocuments = async () => {
+    if (!id) return;
+
+    const { data, error } = await supabase
+      .from("case_documents")
+      .select("*")
+      .eq("case_id", id)
+      .order("uploaded_at", { ascending: false });
+
+    console.log("DOCUMENTS DATA:", data);
+    console.log("DOCUMENTS ERROR:", error);
+
+    if (!error && data) {
+      setDocuments(data);
+    }
+  };
 
   useEffect(() => {
     const fetchCase = async () => {
@@ -73,11 +109,101 @@ export default function CaseDetailPage() {
     };
 
     fetchCase();
+    fetchDocuments();
   }, [id]);
 
   if (!loading && !caseData) {
     notFound();
   }
+
+  const handleDocumentUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file || !caseData) return;
+
+    setUploading(true);
+    setDocumentError("");
+
+    const safeFileName = file.name.replaceAll(" ", "-");
+    const filePath = `cases/${caseData.id}/${Date.now()}-${safeFileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("case-documents")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      setDocumentError(uploadError.message);
+      setUploading(false);
+      return;
+    }
+
+    const { error: dbError } = await supabase.from("case_documents").insert([
+      {
+        case_id: caseData.id,
+        file_name: file.name,
+        file_path: filePath,
+        file_type: file.type,
+        document_type: documentType,
+      },
+    ]);
+
+    if (dbError) {
+      setDocumentError(dbError.message);
+      setUploading(false);
+      return;
+    }
+
+    await fetchDocuments();
+
+    setUploading(false);
+    event.target.value = "";
+  };
+
+  const handleDownloadDocument = async (doc: CaseDocument) => {
+    setDocumentError("");
+
+    const { data, error } = await supabase.storage
+      .from("case-documents")
+      .createSignedUrl(doc.file_path, 60);
+
+    if (error || !data?.signedUrl) {
+      setDocumentError(error?.message || "Unable to download file");
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank");
+  };
+
+  const handleDeleteDocument = async (doc: CaseDocument) => {
+    const confirmDelete = window.confirm(`Delete ${doc.file_name}?`);
+
+    if (!confirmDelete) return;
+
+    setDocumentError("");
+
+    const { error: storageError } = await supabase.storage
+      .from("case-documents")
+      .remove([doc.file_path]);
+
+    if (storageError) {
+      setDocumentError(storageError.message);
+      return;
+    }
+
+    const { error: dbError } = await supabase
+      .from("case_documents")
+      .delete()
+      .eq("id", doc.id);
+
+    if (dbError) {
+      setDocumentError(dbError.message);
+      return;
+    }
+
+    await fetchDocuments();
+  };
 
   const getStatusStyles = (status: string | null) => {
     switch (status) {
@@ -409,16 +535,119 @@ export default function CaseDetailPage() {
               </div>
             )}
 
-            {activeTab === "documents" && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Documents
-                </h2>
-                <p className="mt-3 text-sm text-slate-600">
-                  No documents connected yet. Later this tab will show uploaded
-                  bank statements, financial statements, CCRIS/CTOS files, and
-                  supporting documents.
-                </p>
+            {activeTab === "documents" && caseData && (
+              <div className="space-y-6">
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Upload Documents
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-600">
+                    Upload bank statements, financial statements, and other supporting documents
+                  </p>
+
+                  <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+                    <Upload className="mx-auto mb-4 h-10 w-10 text-slate-500" />
+
+                    <p className="text-sm text-slate-700">
+                      Drag and drop files here, or click to browse
+                    </p>
+
+                    <p className="mt-2 text-xs text-slate-500">
+                      Supported formats: PDF, XLS, XLSX, DOC, DOCX (Max 25MB)
+                    </p>
+
+                    <div className="mt-5 flex justify-center">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm hover:bg-slate-50">
+                        <Upload className="h-4 w-4" />
+                        Browse Files
+
+                        <input
+                          type="file"
+                          accept=".pdf,.xls,.xlsx,.doc,.docx"
+                          onChange={handleDocumentUpload}
+                          disabled={uploading}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  {documentError && (
+                    <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                      {documentError}
+                    </p>
+                  )}
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Uploaded Documents ({documents.length})
+                  </h2>
+
+                  {documents.length === 0 ? (
+                    <div className="mt-8 flex flex-col items-center justify-center py-16 text-center">
+                      <FileText className="mb-4 h-12 w-12 text-slate-500" />
+
+                      <p className="font-medium text-slate-700">
+                        No documents uploaded yet
+                      </p>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        Upload documents to begin analysis
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
+                      <table className="min-w-full">
+                        <thead className="bg-slate-50">
+                          <tr className="text-left text-sm text-slate-600">
+                            <th className="px-4 py-3">File</th>
+                            <th className="px-4 py-3">Type</th>
+                            <th className="px-4 py-3">Uploaded</th>
+                            <th className="px-4 py-3">Actions</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {documents.map((doc) => (
+                            <tr key={doc.id} className="border-t text-sm">
+                              <td className="px-4 py-4">{doc.file_name}</td>
+
+                              <td className="px-4 py-4 capitalize">
+                                {(doc.document_type || "other").replaceAll("_", " ")}
+                              </td>
+
+                              <td className="px-4 py-4">
+                                {formatDate(doc.uploaded_at)}
+                              </td>
+
+                              <td className="px-4 py-4">
+                                <div className="flex gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadDocument(doc)}
+                                    className="text-slate-600 hover:text-slate-900"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteDocument(doc)}
+                                    className="text-red-500 hover:text-red-700"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
               </div>
             )}
 
