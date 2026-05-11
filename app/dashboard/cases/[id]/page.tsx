@@ -652,13 +652,150 @@ export default function CaseDetailPage() {
             )}
 
             {activeTab === "analysis" && caseData && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Analysis
-                </h2>
-                <p className="mt-3 text-sm text-slate-600">
-                  Analysis component not yet implemented.
-                </p>
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Bank Statement Analyzer */}
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-start gap-4">
+                    <div className="rounded-xl bg-cyan-50 p-3">
+                      <FileText className="h-6 w-6 text-cyan-500" />
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Bank Statement Analyzer
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-600">
+                        Analyze cash flow patterns, transaction history, and account health
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                    Required documents: bank statement
+                  </div>
+
+                  <a
+                    href={process.env.NEXT_PUBLIC_ANALYZER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-300 px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-cyan-400"
+                  >
+                    Run Analysis
+                  </a>
+
+                  <p className="mt-4 text-center text-xs text-slate-500">
+                    Upload and process required documents first
+                  </p>
+                </section>
+
+                {/* Financial Statement Analyzer */}
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-start gap-4">
+                    <div className="rounded-xl bg-cyan-50 p-3">
+                      <BarChart3 className="h-6 w-6 text-cyan-500" />
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Financial Statement Analyzer
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-600">
+                        Evaluate profit margins, debt ratios, and financial health indicators
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                    Required documents: financial statement
+                  </div>
+
+                  <a
+                    href={process.env.NEXT_PUBLIC_ANALYZER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-300 px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-cyan-400"
+                  >
+                    Run Analysis
+                  </a>
+
+                  <p className="mt-4 text-center text-xs text-slate-500">
+                    Upload and process required documents first
+                  </p>
+                </section>
+
+                {/* Credit Scoring Engine */}
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-start gap-4">
+                    <div className="rounded-xl bg-cyan-50 p-3">
+                      <CircleDot className="h-6 w-6 text-cyan-500" />
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Credit Scoring Engine
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-600">
+                        Calculate credit worthiness based on multiple data points
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                    Required documents: bank statement, financial statement
+                  </div>
+
+                  <a
+                    href={process.env.NEXT_PUBLIC_ANALYZER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-300 px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-cyan-400"
+                  >
+                    Run Analysis
+                  </a>
+
+                  <p className="mt-4 text-center text-xs text-slate-500">
+                    Upload and process required documents first
+                  </p>
+                </section>
+
+                {/* Bank Matching Engine */}
+                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="mb-5 flex items-start gap-4">
+                    <div className="rounded-xl bg-cyan-50 p-3">
+                      <ClipboardList className="h-6 w-6 text-cyan-500" />
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-semibold text-slate-900">
+                        Bank Matching Engine
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-600">
+                        Cross-reference bank transactions with financial statement entries
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                    Required documents: bank statement, financial statement
+                  </div>
+
+                  <a
+                    href={process.env.NEXT_PUBLIC_ANALYZER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-300 px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-cyan-400"
+                  >
+                    Run Analysis
+                  </a>
+
+                  <p className="mt-4 text-center text-xs text-slate-500">
+                    Upload and process required documents first
+                  </p>
+                </section>
               </div>
             )}
 
