@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     }
 
     const { data, error } = await resend.emails.send({
-      from: "Capital Island <noreply@send.kreditlab.com>",
+      from: "Capital Island <noreply@send.kreditlab.my>",
       to: email,
       subject: "Your financing case has been registered",
       html: `
