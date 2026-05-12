@@ -68,32 +68,33 @@ const handleCreateCase = async (e: React.FormEvent) => {
       return;
     }
 
-    // ✅ SEND EMAIL (debug mode)
-    try {
-      const res = await fetch("/api/send-case-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          clientName,
-          companyName,
-          caseCode,
-        }),
-      });
+      // ✅ SEND EMAIL (debug mode)
+      try {
+        const res = await fetch("/api/send-case-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            clientName,
+            companyName,
+            caseCode,
+          }),
+        });
 
-      const result = await res.json();
+        const result = await res.json();
 
-      console.log("EMAIL STATUS:", res.status);
-      console.log("EMAIL RESULT:", result);
-    } catch (err) {
-      console.log("EMAIL FETCH ERROR:", err);
-    }
+        console.log("EMAIL STATUS:", res.status);
+        console.log("EMAIL RESULT:", result);
+      } catch (err) {
+        console.log("EMAIL FETCH ERROR:", err);
+      }
 
-    // ✅ THEN REDIRECT
-    router.push("/dashboard/cases");
-    router.refresh();
+      // ✅ THEN REDIRECT
+      router.push("/dashboard/cases");
+      router.refresh();
+    };
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8">
