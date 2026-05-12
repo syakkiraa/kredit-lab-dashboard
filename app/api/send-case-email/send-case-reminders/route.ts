@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
     for (const item of cases) {
       const { error: emailError } = await resend.emails.send({
-        from: "Capital Island <onboarding@resend.dev>",
+        from: "Capital Island <noreply@send.kreditlab.com>",
         to: item.email,
         subject: "Reminder: Your financing case is still in progress",
         html: `
