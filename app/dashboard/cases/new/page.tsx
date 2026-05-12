@@ -68,26 +68,32 @@ const handleCreateCase = async (e: React.FormEvent) => {
       return;
     }
 
-    // ✅ SEND EMAIL (non-blocking)
-    fetch("/api/send-case-email", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        clientName,
-        companyName,
-        caseCode,
-      }),
-    }).catch(() => {
-      console.log("Email failed but case saved");
-    });
+    // ✅ SEND EMAIL (debug mode)
+    try {
+      const res = await fetch("/api/send-case-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          clientName,
+          companyName,
+          caseCode,
+        }),
+      });
 
-    // ✅ REDIRECT
+      const result = await res.json();
+
+      console.log("EMAIL STATUS:", res.status);
+      console.log("EMAIL RESULT:", result);
+    } catch (err) {
+      console.log("EMAIL FETCH ERROR:", err);
+    }
+
+    // ✅ THEN REDIRECT
     router.push("/dashboard/cases");
     router.refresh();
-    };
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-8">
