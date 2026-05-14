@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { notFound, useParams } from "next/navigation";
+import { notFound, useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import {
@@ -60,6 +60,7 @@ type TabKey =
 
 export default function CaseDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
 
   const [caseData, setCaseData] = useState<CaseItem | null>(null);
@@ -71,6 +72,15 @@ export default function CaseDetailPage() {
   const [documentType, setDocumentType] = useState("financial_statement");
   const [documentError, setDocumentError] = useState("");
 
+  const [selectedBankDocs, setSelectedBankDocs] = useState<string[]>([]);
+  const [selectedFinancialDocs, setSelectedFinancialDocs] = useState<string[]>(
+    []
+  );
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const fetchDocuments = async () => {
     if (!id) return;
 
@@ -79,9 +89,6 @@ export default function CaseDetailPage() {
       .select("*")
       .eq("case_id", id)
       .order("uploaded_at", { ascending: false });
-
-    console.log("DOCUMENTS DATA:", data);
-    console.log("DOCUMENTS ERROR:", error);
 
     if (!error && data) {
       setDocuments(data);
@@ -95,9 +102,6 @@ export default function CaseDetailPage() {
         .select("*")
         .eq("id", id)
         .single();
-
-      console.log("CASE DETAIL DATA:", data);
-      console.log("CASE DETAIL ERROR:", error);
 
       if (error || !data) {
         setLoading(false);
@@ -115,6 +119,73 @@ export default function CaseDetailPage() {
   if (!loading && !caseData) {
     notFound();
   }
+
+  const handleUpdateCase = async () => {
+    if (!caseData) return;
+
+    setSaving(true);
+
+    const { error } = await supabase
+      .from("cases")
+      .update({
+        company_name: caseData.company_name,
+        client_name: caseData.client_name,
+        email: caseData.email,
+        phone: caseData.phone,
+        industry: caseData.industry,
+        requested_amount: Number(caseData.requested_amount || 0),
+        loan_purpose: caseData.loan_purpose,
+        status: caseData.status,
+        assigned_to: caseData.assigned_to,
+        ssm_registration_id: caseData.ssm_registration_id,
+        initial_notes: caseData.initial_notes,
+        annual_revenue: caseData.annual_revenue
+          ? Number(caseData.annual_revenue)
+          : null,
+        employee_count: caseData.employee_count
+          ? Number(caseData.employee_count)
+          : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", caseData.id);
+
+    setSaving(false);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    setIsEditing(false);
+    alert("Case updated successfully.");
+  };
+
+  const handleDeleteCase = async () => {
+    if (!caseData) return;
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete ${caseData.company_name}?`
+    );
+
+    if (!confirmDelete) return;
+
+    setDeleting(true);
+
+    const { error } = await supabase
+      .from("cases")
+      .delete()
+      .eq("id", caseData.id);
+
+    setDeleting(false);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    router.push("/dashboard/cases");
+    router.refresh();
+  };
 
   const handleDocumentUpload = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -252,6 +323,9 @@ export default function CaseDetailPage() {
     );
   };
 
+  const inputClass =
+    "mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-cyan-400";
+
   return (
     <main className="min-h-screen bg-slate-100 p-6">
       <div className="mx-auto max-w-6xl">
@@ -280,17 +354,42 @@ export default function CaseDetailPage() {
                   {formatCurrency(caseData?.requested_amount || 0)}
                 </span>
 
-                <button className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing((prev) => !prev)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
                   <Pencil className="h-4 w-4" />
-                  Edit
+                  {isEditing ? "Cancel" : "Edit"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDeleteCase}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 disabled:opacity-60"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleting ? "Deleting..." : "Delete"}
                 </button>
               </div>
             </div>
 
             <div className="mb-4">
-              <h1 className="text-3xl font-bold text-slate-900">
-                {caseData?.company_name}
-              </h1>
+              {isEditing && caseData ? (
+                <input
+                  value={caseData.company_name}
+                  onChange={(e) =>
+                    setCaseData({ ...caseData, company_name: e.target.value })
+                  }
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-3xl font-bold text-slate-900 outline-none focus:border-cyan-400"
+                />
+              ) : (
+                <h1 className="text-3xl font-bold text-slate-900">
+                  {caseData?.company_name}
+                </h1>
+              )}
+
               <p className="mt-1 text-sm text-slate-500">
                 {caseData?.case_code || caseData?.id} • {caseData?.client_name}
               </p>
@@ -304,6 +403,19 @@ export default function CaseDetailPage() {
               {renderTabButton("pipeline", "Pipeline")}
               {renderTabButton("report", "Report")}
             </div>
+
+            {isEditing && (
+              <div className="mb-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleUpdateCase}
+                  disabled={saving}
+                  className="rounded-xl bg-cyan-400 px-5 py-3 text-sm font-semibold text-slate-900 hover:bg-cyan-300 disabled:opacity-60"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            )}
 
             {activeTab === "overview" && caseData && (
               <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
@@ -319,46 +431,131 @@ export default function CaseDetailPage() {
                     <div className="grid gap-6 md:grid-cols-2">
                       <div>
                         <p className="text-sm text-slate-500">Company Name</p>
-                        <p className="mt-1 text-xl font-semibold text-slate-900">
-                          {caseData.company_name}
-                        </p>
+                        {isEditing ? (
+                          <input
+                            value={caseData.company_name}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                company_name: e.target.value,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
+                          <p className="mt-1 text-xl font-semibold text-slate-900">
+                            {caseData.company_name}
+                          </p>
+                        )}
                       </div>
 
                       <div>
                         <p className="text-sm text-slate-500">Employee Count</p>
-                        <p className="mt-1 text-xl font-semibold text-slate-900">
-                          {caseData.employee_count ?? "-"}
-                        </p>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={caseData.employee_count ?? ""}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                employee_count: e.target.value
+                                  ? Number(e.target.value)
+                                  : null,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
+                          <p className="mt-1 text-xl font-semibold text-slate-900">
+                            {caseData.employee_count ?? "-"}
+                          </p>
+                        )}
                       </div>
 
                       <div>
                         <p className="text-sm text-slate-500">Industry</p>
-                        <p className="mt-1 text-xl font-semibold text-slate-900">
-                          {caseData.industry}
-                        </p>
+                        {isEditing ? (
+                          <input
+                            value={caseData.industry}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                industry: e.target.value,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
+                          <p className="mt-1 text-xl font-semibold text-slate-900">
+                            {caseData.industry}
+                          </p>
+                        )}
                       </div>
 
                       <div>
                         <p className="text-sm text-slate-500">Loan Purpose</p>
-                        <p className="mt-1 text-xl font-semibold text-slate-900">
-                          {caseData.loan_purpose || "-"}
-                        </p>
+                        {isEditing ? (
+                          <input
+                            value={caseData.loan_purpose || ""}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                loan_purpose: e.target.value,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
+                          <p className="mt-1 text-xl font-semibold text-slate-900">
+                            {caseData.loan_purpose || "-"}
+                          </p>
+                        )}
                       </div>
 
                       <div>
                         <p className="text-sm text-slate-500">Annual Revenue</p>
-                        <p className="mt-1 text-xl font-semibold text-slate-900">
-                          {caseData.annual_revenue
-                            ? formatCurrency(caseData.annual_revenue)
-                            : "-"}
-                        </p>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={caseData.annual_revenue ?? ""}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                annual_revenue: e.target.value
+                                  ? Number(e.target.value)
+                                  : null,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
+                          <p className="mt-1 text-xl font-semibold text-slate-900">
+                            {caseData.annual_revenue
+                              ? formatCurrency(caseData.annual_revenue)
+                              : "-"}
+                          </p>
+                        )}
                       </div>
 
                       <div>
                         <p className="text-sm text-slate-500">Loan Amount</p>
-                        <p className="mt-1 text-3xl font-bold text-slate-900">
-                          {formatCurrency(caseData.requested_amount)}
-                        </p>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={caseData.requested_amount}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                requested_amount: Number(e.target.value),
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
+                          <p className="mt-1 text-3xl font-bold text-slate-900">
+                            {formatCurrency(caseData.requested_amount)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </section>
@@ -372,40 +569,65 @@ export default function CaseDetailPage() {
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-3">
-                      <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-4">
-                        <div className="rounded-xl bg-cyan-50 p-2">
-                          <User className="h-5 w-5 text-cyan-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-500">Client Name</p>
+                      <div className="rounded-xl bg-slate-50 p-4">
+                        <p className="text-sm text-slate-500">Client Name</p>
+                        {isEditing ? (
+                          <input
+                            value={caseData.client_name}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                client_name: e.target.value,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
                           <p className="text-lg font-semibold text-slate-900">
                             {caseData.client_name}
                           </p>
-                        </div>
+                        )}
                       </div>
 
-                      <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-4">
-                        <div className="rounded-xl bg-cyan-50 p-2">
-                          <Mail className="h-5 w-5 text-cyan-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-500">Email</p>
+                      <div className="rounded-xl bg-slate-50 p-4">
+                        <p className="text-sm text-slate-500">Email</p>
+                        {isEditing ? (
+                          <input
+                            type="email"
+                            value={caseData.email}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                email: e.target.value,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
                           <p className="break-all text-lg font-semibold text-slate-900">
                             {caseData.email}
                           </p>
-                        </div>
+                        )}
                       </div>
 
-                      <div className="flex items-start gap-3 rounded-xl bg-slate-50 p-4">
-                        <div className="rounded-xl bg-cyan-50 p-2">
-                          <Phone className="h-5 w-5 text-cyan-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-slate-500">Phone</p>
+                      <div className="rounded-xl bg-slate-50 p-4">
+                        <p className="text-sm text-slate-500">Phone</p>
+                        {isEditing ? (
+                          <input
+                            value={caseData.phone || ""}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                phone: e.target.value,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
                           <p className="text-lg font-semibold text-slate-900">
                             {caseData.phone || "-"}
                           </p>
-                        </div>
+                        )}
                       </div>
                     </div>
                   </section>
@@ -423,9 +645,22 @@ export default function CaseDetailPage() {
                         <p className="text-sm text-slate-500">
                           SSM Registration ID
                         </p>
-                        <p className="mt-1 text-lg font-semibold text-slate-900">
-                          {caseData.ssm_registration_id || "-"}
-                        </p>
+                        {isEditing ? (
+                          <input
+                            value={caseData.ssm_registration_id || ""}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                ssm_registration_id: e.target.value,
+                              })
+                            }
+                            className={inputClass}
+                          />
+                        ) : (
+                          <p className="mt-1 text-lg font-semibold text-slate-900">
+                            {caseData.ssm_registration_id || "-"}
+                          </p>
+                        )}
                       </div>
 
                       <div>
@@ -446,24 +681,49 @@ export default function CaseDetailPage() {
 
                     <div className="space-y-4">
                       <div className="flex items-center justify-between gap-4">
-                        <p className="text-slate-500">Pipeline Stage</p>
-                        <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium">
-                          Proposal
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-4">
                         <p className="text-slate-500">Assigned To</p>
-                        <p className="font-medium text-slate-900">
-                          {caseData.assigned_to || "-"}
-                        </p>
+                        {isEditing ? (
+                          <input
+                            value={caseData.assigned_to || ""}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                assigned_to: e.target.value,
+                              })
+                            }
+                            className="w-40 rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                          />
+                        ) : (
+                          <p className="font-medium text-slate-900">
+                            {caseData.assigned_to || "-"}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between gap-4">
                         <p className="text-slate-500">Status</p>
-                        <p className="font-medium text-slate-900">
-                          {caseData.status || "New"}
-                        </p>
+                        {isEditing ? (
+                          <select
+                            value={caseData.status || "New"}
+                            onChange={(e) =>
+                              setCaseData({
+                                ...caseData,
+                                status: e.target.value,
+                              })
+                            }
+                            className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                          >
+                            <option value="New">New</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Under Review">Under Review</option>
+                            <option value="Approved">Approved</option>
+                            <option value="Rejected">Rejected</option>
+                          </select>
+                        ) : (
+                          <p className="font-medium text-slate-900">
+                            {caseData.status || "New"}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </section>
@@ -480,9 +740,13 @@ export default function CaseDetailPage() {
                       <div className="flex gap-3">
                         <CircleDot className="mt-1 h-4 w-4 text-cyan-500" />
                         <div>
-                          <p className="font-semibold text-slate-900">Created</p>
+                          <p className="font-semibold text-slate-900">
+                            Created
+                          </p>
                           <p className="text-sm text-slate-500">
-                            {formatDate(caseData.created_at || caseData.updated_at)}
+                            {formatDate(
+                              caseData.created_at || caseData.updated_at
+                            )}
                           </p>
                         </div>
                       </div>
@@ -500,37 +764,6 @@ export default function CaseDetailPage() {
                       </div>
                     </div>
                   </section>
-
-                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div className="mb-5 flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5 text-cyan-500" />
-                      <h2 className="text-xl font-semibold text-slate-900">
-                        Analysis Scores
-                      </h2>
-                    </div>
-
-                    <div className="space-y-5">
-                      <div>
-                        <div className="mb-2 flex items-center justify-between text-sm">
-                          <span className="text-slate-600">Bank Statement</span>
-                          <span className="font-semibold text-slate-900">72</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-slate-200">
-                          <div className="h-2 w-[72%] rounded-full bg-green-500" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="mb-2 flex items-center justify-between text-sm">
-                          <span className="text-slate-600">Credit Score</span>
-                          <span className="font-semibold text-slate-900">680</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-slate-200">
-                          <div className="h-2 w-full rounded-full bg-green-500" />
-                        </div>
-                      </div>
-                    </div>
-                  </section>
                 </div>
               </div>
             )}
@@ -542,19 +775,27 @@ export default function CaseDetailPage() {
                     Upload Documents
                   </h2>
 
-                  <p className="mt-1 text-sm text-slate-600">
-                    Upload bank statements, financial statements, and other supporting documents
-                  </p>
+                  <select
+                    value={documentType}
+                    onChange={(e) => setDocumentType(e.target.value)}
+                    className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
+                  >
+                    <option value="financial_statement">
+                      Financial Statement
+                    </option>
+                    <option value="bank_statement">Bank Statement</option>
+                    <option value="ssm">SSM Document</option>
+                    <option value="supporting_document">
+                      Supporting Document
+                    </option>
+                    <option value="other">Other</option>
+                  </select>
 
                   <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
                     <Upload className="mx-auto mb-4 h-10 w-10 text-slate-500" />
 
                     <p className="text-sm text-slate-700">
                       Drag and drop files here, or click to browse
-                    </p>
-
-                    <p className="mt-2 text-xs text-slate-500">
-                      Supported formats: PDF, XLS, XLSX, DOC, DOCX (Max 25MB)
                     </p>
 
                     <div className="mt-5 flex justify-center">
@@ -588,46 +829,31 @@ export default function CaseDetailPage() {
                   {documents.length === 0 ? (
                     <div className="mt-8 flex flex-col items-center justify-center py-16 text-center">
                       <FileText className="mb-4 h-12 w-12 text-slate-500" />
-
                       <p className="font-medium text-slate-700">
                         No documents uploaded yet
-                      </p>
-
-                      <p className="mt-1 text-sm text-slate-500">
-                        Upload documents to begin analysis
                       </p>
                     </div>
                   ) : (
                     <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
                       <table className="min-w-full">
-                        <thead className="bg-slate-50">
-                          <tr className="text-left text-sm text-slate-600">
-                            <th className="px-4 py-3">File</th>
-                            <th className="px-4 py-3">Type</th>
-                            <th className="px-4 py-3">Uploaded</th>
-                            <th className="px-4 py-3">Actions</th>
-                          </tr>
-                        </thead>
-
                         <tbody>
                           {documents.map((doc) => (
                             <tr key={doc.id} className="border-t text-sm">
                               <td className="px-4 py-4">{doc.file_name}</td>
-
                               <td className="px-4 py-4 capitalize">
-                                {(doc.document_type || "other").replaceAll("_", " ")}
+                                {(doc.document_type || "other").replaceAll(
+                                  "_",
+                                  " "
+                                )}
                               </td>
-
                               <td className="px-4 py-4">
                                 {formatDate(doc.uploaded_at)}
                               </td>
-
                               <td className="px-4 py-4">
                                 <div className="flex gap-3">
                                   <button
                                     type="button"
                                     onClick={() => handleDownloadDocument(doc)}
-                                    className="text-slate-600 hover:text-slate-900"
                                   >
                                     <Download className="h-4 w-4" />
                                   </button>
@@ -635,7 +861,7 @@ export default function CaseDetailPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteDocument(doc)}
-                                    className="text-red-500 hover:text-red-700"
+                                    className="text-red-500"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </button>
@@ -652,149 +878,111 @@ export default function CaseDetailPage() {
             )}
 
             {activeTab === "analysis" && caseData && (
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Bank Statement Analyzer */}
+              <div className="space-y-6">
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="mb-5 flex items-start gap-4">
-                    <div className="rounded-xl bg-cyan-50 p-3">
-                      <FileText className="h-6 w-6 text-cyan-500" />
-                    </div>
+                  <h2 className="text-xl font-semibold text-slate-900">
+                    Bank Statement Analyzer
+                  </h2>
 
-                    <div>
-                      <h2 className="text-xl font-semibold text-slate-900">
-                        Bank Statement Analyzer
-                      </h2>
-
-                      <p className="mt-1 text-sm text-slate-600">
-                        Analyze cash flow patterns, transaction history, and account health
-                      </p>
-                    </div>
+                  <div className="mt-4 space-y-3">
+                    {documents
+                      .filter((doc) => doc.document_type === "bank_statement")
+                      .map((doc) => (
+                        <label
+                          key={doc.id}
+                          className="flex items-center gap-3 rounded-xl border px-4 py-3"
+                        >
+                          <input
+                            type="checkbox"
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedBankDocs((prev) => [
+                                  ...prev,
+                                  doc.id,
+                                ]);
+                              } else {
+                                setSelectedBankDocs((prev) =>
+                                  prev.filter((x) => x !== doc.id)
+                                );
+                              }
+                            }}
+                          />
+                          {doc.file_name}
+                        </label>
+                      ))}
                   </div>
 
-                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                    Required documents: bank statement
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedBankDocs.length === 0) {
+                        alert("Please select at least one bank statement.");
+                        return;
+                      }
 
-                  <a
-                    href={process.env.NEXT_PUBLIC_ANALYZER_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-300 px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-cyan-400"
+                      alert(
+                        `Running analysis for ${selectedBankDocs.length} selected document(s)`
+                      );
+                    }}
+                    className="mt-5 w-full rounded-xl bg-cyan-300 px-4 py-3 font-medium text-slate-900"
                   >
                     Run Analysis
-                  </a>
-
-                  <p className="mt-4 text-center text-xs text-slate-500">
-                    Upload and process required documents first
-                  </p>
+                  </button>
                 </section>
 
-                {/* Financial Statement Analyzer */}
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="mb-5 flex items-start gap-4">
-                    <div className="rounded-xl bg-cyan-50 p-3">
-                      <BarChart3 className="h-6 w-6 text-cyan-500" />
-                    </div>
+                  <h2 className="text-xl font-semibold text-slate-900">
+                    Financial Statement Analyzer
+                  </h2>
 
-                    <div>
-                      <h2 className="text-xl font-semibold text-slate-900">
-                        Financial Statement Analyzer
-                      </h2>
-
-                      <p className="mt-1 text-sm text-slate-600">
-                        Evaluate profit margins, debt ratios, and financial health indicators
-                      </p>
-                    </div>
+                  <div className="mt-4 space-y-3">
+                    {documents
+                      .filter(
+                        (doc) => doc.document_type === "financial_statement"
+                      )
+                      .map((doc) => (
+                        <label
+                          key={doc.id}
+                          className="flex items-center gap-3 rounded-xl border px-4 py-3"
+                        >
+                          <input
+                            type="checkbox"
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedFinancialDocs((prev) => [
+                                  ...prev,
+                                  doc.id,
+                                ]);
+                              } else {
+                                setSelectedFinancialDocs((prev) =>
+                                  prev.filter((x) => x !== doc.id)
+                                );
+                              }
+                            }}
+                          />
+                          {doc.file_name}
+                        </label>
+                      ))}
                   </div>
 
-                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                    Required documents: financial statement
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedFinancialDocs.length === 0) {
+                        alert(
+                          "Please select at least one financial statement."
+                        );
+                        return;
+                      }
 
-                  <a
-                    href={process.env.NEXT_PUBLIC_ANALYZER_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-300 px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-cyan-400"
+                      alert(
+                        `Running analysis for ${selectedFinancialDocs.length} selected document(s)`
+                      );
+                    }}
+                    className="mt-5 w-full rounded-xl bg-cyan-300 px-4 py-3 font-medium text-slate-900"
                   >
                     Run Analysis
-                  </a>
-
-                  <p className="mt-4 text-center text-xs text-slate-500">
-                    Upload and process required documents first
-                  </p>
-                </section>
-
-                {/* Credit Scoring Engine */}
-                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="mb-5 flex items-start gap-4">
-                    <div className="rounded-xl bg-cyan-50 p-3">
-                      <CircleDot className="h-6 w-6 text-cyan-500" />
-                    </div>
-
-                    <div>
-                      <h2 className="text-xl font-semibold text-slate-900">
-                        Credit Scoring Engine
-                      </h2>
-
-                      <p className="mt-1 text-sm text-slate-600">
-                        Calculate credit worthiness based on multiple data points
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                    Required documents: bank statement, financial statement
-                  </div>
-
-                  <a
-                    href={process.env.NEXT_PUBLIC_ANALYZER_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-300 px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-cyan-400"
-                  >
-                    Run Analysis
-                  </a>
-
-                  <p className="mt-4 text-center text-xs text-slate-500">
-                    Upload and process required documents first
-                  </p>
-                </section>
-
-                {/* Bank Matching Engine */}
-                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="mb-5 flex items-start gap-4">
-                    <div className="rounded-xl bg-cyan-50 p-3">
-                      <ClipboardList className="h-6 w-6 text-cyan-500" />
-                    </div>
-
-                    <div>
-                      <h2 className="text-xl font-semibold text-slate-900">
-                        Bank Matching Engine
-                      </h2>
-
-                      <p className="mt-1 text-sm text-slate-600">
-                        Cross-reference bank transactions with financial statement entries
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                    Required documents: bank statement, financial statement
-                  </div>
-
-                  <a
-                    href={process.env.NEXT_PUBLIC_ANALYZER_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-300 px-4 py-3 text-sm font-medium text-slate-900 transition hover:bg-cyan-400"
-                  >
-                    Run Analysis
-                  </a>
-
-                  <p className="mt-4 text-center text-xs text-slate-500">
-                    Upload and process required documents first
-                  </p>
+                  </button>
                 </section>
               </div>
             )}
@@ -802,44 +990,23 @@ export default function CaseDetailPage() {
             {activeTab === "notes" && (
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 className="text-lg font-semibold text-slate-900">Notes</h2>
-                <p className="mt-3 text-sm text-slate-700">
-                  {caseData?.initial_notes || "No notes yet."}
-                </p>
-              </div>
-            )}
 
-            {activeTab === "pipeline" && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Pipeline
-                </h2>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {[
-                    "Lead",
-                    "Docs Received",
-                    "Analysis",
-                    "Submission",
-                    "Approval",
-                    "Disbursement",
-                  ].map((step) => (
-                    <div
-                      key={step}
-                      className="rounded-full border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-700"
-                    >
-                      {step}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "report" && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-slate-900">Report</h2>
-                <p className="mt-3 text-sm text-slate-600">
-                  This tab will later generate a consultant-ready report and bank
-                  recommendation summary.
-                </p>
+                {isEditing && caseData ? (
+                  <textarea
+                    value={caseData.initial_notes || ""}
+                    onChange={(e) =>
+                      setCaseData({
+                        ...caseData,
+                        initial_notes: e.target.value,
+                      })
+                    }
+                    className="mt-3 min-h-40 w-full rounded-xl border border-slate-300 p-3 text-sm"
+                  />
+                ) : (
+                  <p className="mt-3 text-sm text-slate-700">
+                    {caseData?.initial_notes || "No notes yet."}
+                  </p>
+                )}
               </div>
             )}
           </>
