@@ -36,15 +36,15 @@ export async function POST(req: Request) {
       supabaseServiceRoleKey
     );
 
-    const threeDaysAgo = new Date();
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const tenMinutesAgo = new Date();
+    tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
 
     const { data: cases, error: fetchError } = await supabaseAdmin
       .from("cases")
       .select(
         "id, case_code, client_name, company_name, email, status, created_at, reminder_sent_at"
       )
-      .lte("created_at", threeDaysAgo.toISOString())
+      .lte("created_at", tenMinutesAgo.toISOString())
       .is("reminder_sent_at", null)
       .not("email", "is", null);
 
