@@ -803,13 +803,13 @@ export default function CaseDetailPage() {
                         <Upload className="h-4 w-4" />
                         Browse Files
 
-                        <input
-                          type="file"
-                          accept=".pdf,.xls,.xlsx,.doc,.docx"
-                          onChange={handleDocumentUpload}
-                          disabled={uploading}
-                          className="hidden"
-                        />
+                      <input
+                        type="file"
+                        accept=".pdf,.json,.xls,.xlsx,.doc,.docx"
+                        onChange={handleDocumentUpload}
+                        disabled={uploading}
+                        className="hidden"
+                      />
                       </label>
                     </div>
                   </div>
