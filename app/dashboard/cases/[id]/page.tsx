@@ -71,6 +71,7 @@ export default function CaseDetailPage() {
   const [uploading, setUploading] = useState(false);
   const [documentType, setDocumentType] = useState("financial_statement");
   const [documentError, setDocumentError] = useState("");
+  const [analysisReport, setAnalysisReport] = useState<any>(null);
 
   const [selectedBankDocs, setSelectedBankDocs] = useState<string[]>([]);
   const [selectedFinancialDocs, setSelectedFinancialDocs] = useState<string[]>(
@@ -95,6 +96,22 @@ export default function CaseDetailPage() {
     }
   };
 
+  const fetchAnalysisReport = async () => {
+    if (!id) return;
+
+    const { data, error } = await supabase
+      .from("case_analysis_reports")
+      .select("*")
+      .eq("case_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!error && data) {
+      setAnalysisReport(data);
+    }
+  };
+
   useEffect(() => {
     const fetchCase = async () => {
       const { data, error } = await supabase
@@ -114,6 +131,7 @@ export default function CaseDetailPage() {
 
     fetchCase();
     fetchDocuments();
+    fetchAnalysisReport();
   }, [id]);
 
   if (!loading && !caseData) {
@@ -768,111 +786,150 @@ export default function CaseDetailPage() {
               </div>
             )}
 
-            {activeTab === "documents" && caseData && (
+            {activeTab === "report" && caseData && (
               <div className="space-y-6">
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h2 className="text-lg font-semibold text-slate-900">
-                    Upload Documents
+                    Generate Report
                   </h2>
 
-                  <select
-                    value={documentType}
-                    onChange={(e) => setDocumentType(e.target.value)}
-                    className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
-                  >
-                    <option value="financial_statement">
-                      Financial Statement
-                    </option>
-                    <option value="bank_statement">Bank Statement</option>
-                    <option value="ssm">SSM Document</option>
-                    <option value="supporting_document">
-                      Supporting Document
-                    </option>
-                    <option value="other">Other</option>
-                  </select>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Create a comprehensive case report for review or sharing
+                  </p>
 
-                  <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-                    <Upload className="mx-auto mb-4 h-10 w-10 text-slate-500" />
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fetchAnalysisReport()}
+                      className="rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-300"
+                    >
+                      Generate Full Report
+                    </button>
 
-                    <p className="text-sm text-slate-700">
-                      Drag and drop files here, or click to browse
-                    </p>
-
-                    <div className="mt-5 flex justify-center">
-                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm hover:bg-slate-50">
-                        <Upload className="h-4 w-4" />
-                        Browse Files
-
-                      <input
-                        type="file"
-                        accept=".pdf,.json,.xls,.xlsx,.doc,.docx"
-                        onChange={handleDocumentUpload}
-                        disabled={uploading}
-                        className="hidden"
-                      />
-                      </label>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      Print
+                    </button>
                   </div>
-
-                  {documentError && (
-                    <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                      {documentError}
-                    </p>
-                  )}
                 </section>
 
                 <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                   <h2 className="text-lg font-semibold text-slate-900">
-                    Uploaded Documents ({documents.length})
+                    Report Preview
                   </h2>
 
-                  {documents.length === 0 ? (
-                    <div className="mt-8 flex flex-col items-center justify-center py-16 text-center">
-                      <FileText className="mb-4 h-12 w-12 text-slate-500" />
-                      <p className="font-medium text-slate-700">
-                        No documents uploaded yet
+                  <div className="mt-6 border-b border-slate-200 pb-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h1 className="text-3xl font-bold text-slate-900">
+                          {caseData.company_name}
+                        </h1>
+                        <p className="mt-1 text-slate-600">
+                          Loan Consultation Report
+                        </p>
+                      </div>
+
+                      <div className="text-right text-sm text-slate-600">
+                        <p>{caseData.case_code || caseData.id}</p>
+                        <p>{new Date().toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-4">
+                    <div className="rounded-xl bg-slate-100 p-4">
+                      <p className="text-sm text-slate-500">Loan Amount</p>
+                      <p className="mt-1 text-xl font-bold text-slate-900">
+                        {formatCurrency(caseData.requested_amount)}
                       </p>
                     </div>
-                  ) : (
-                    <div className="mt-5 overflow-hidden rounded-xl border border-slate-200">
-                      <table className="min-w-full">
-                        <tbody>
-                          {documents.map((doc) => (
-                            <tr key={doc.id} className="border-t text-sm">
-                              <td className="px-4 py-4">{doc.file_name}</td>
-                              <td className="px-4 py-4 capitalize">
-                                {(doc.document_type || "other").replaceAll(
-                                  "_",
-                                  " "
-                                )}
-                              </td>
-                              <td className="px-4 py-4">
-                                {formatDate(doc.uploaded_at)}
-                              </td>
-                              <td className="px-4 py-4">
-                                <div className="flex gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDownloadDocument(doc)}
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteDocument(doc)}
-                                    className="text-red-500"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="rounded-xl bg-slate-100 p-4">
+                      <p className="text-sm text-slate-500">Status</p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        {caseData.status || "New"}
+                      </p>
                     </div>
-                  )}
+
+                    <div className="rounded-xl bg-slate-100 p-4">
+                      <p className="text-sm text-slate-500">Industry</p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        {caseData.industry}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-red-100 p-4">
+                      <p className="text-sm text-red-600">Risk Assessment</p>
+                      <p className="mt-1 font-bold text-red-700">
+                        Pending Analysis
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Client Information
+                    </h3>
+
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <div className="border-b border-slate-200 py-3">
+                        <p className="text-sm text-slate-500">Client Name</p>
+                        <p className="font-medium text-slate-900">
+                          {caseData.client_name}
+                        </p>
+                      </div>
+
+                      <div className="border-b border-slate-200 py-3">
+                        <p className="text-sm text-slate-500">Email</p>
+                        <p className="font-medium text-slate-900">
+                          {caseData.email}
+                        </p>
+                      </div>
+
+                      <div className="border-b border-slate-200 py-3">
+                        <p className="text-sm text-slate-500">Phone</p>
+                        <p className="font-medium text-slate-900">
+                          {caseData.phone || "-"}
+                        </p>
+                      </div>
+
+                      <div className="border-b border-slate-200 py-3">
+                        <p className="text-sm text-slate-500">Loan Purpose</p>
+                        <p className="font-medium text-slate-900">
+                          {caseData.loan_purpose || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Financial Analysis Result
+                    </h3>
+
+                    {!analysisReport ? (
+                      <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                        <p className="font-medium text-slate-700">
+                          No analysis report generated yet
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Go to Analysis tab, select a JSON financial statement, then run analysis.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
+                        <div
+                          className="prose max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: analysisReport.report_html,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </section>
               </div>
             )}
