@@ -73,6 +73,11 @@ export default function CaseDetailPage() {
   const [documentError, setDocumentError] = useState("");
   const [analysisReport, setAnalysisReport] = useState<any>(null);
 
+  const [analysisMode, setAnalysisMode] = useState<"menu" | "financial" | "bank">("menu");
+  const [runningAnalysis, setRunningAnalysis] = useState(false);
+  const [analysisMessage, setAnalysisMessage] = useState("");
+  const [analysisHtml, setAnalysisHtml] = useState("");
+
   const [selectedBankDocs, setSelectedBankDocs] = useState<string[]>([]);
   const [selectedFinancialDocs, setSelectedFinancialDocs] = useState<string[]>(
     []
@@ -203,6 +208,92 @@ export default function CaseDetailPage() {
 
     router.push("/dashboard/cases");
     router.refresh();
+  };
+
+  const handleFinancialJsonAnalysis = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file || !caseData) return;
+
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      alert("Please upload JSON file only for now.");
+      event.target.value = "";
+      return;
+    }
+
+    setRunningAnalysis(true);
+    setAnalysisMessage("Uploading JSON file...");
+    setAnalysisHtml("");
+
+    const safeFileName = file.name.replaceAll(" ", "-");
+    const filePath = `cases/${caseData.id}/analysis/${Date.now()}-${safeFileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("case-documents")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      setRunningAnalysis(false);
+      setAnalysisMessage("");
+      alert(uploadError.message);
+      return;
+    }
+
+    const { data: insertedDoc, error: dbError } = await supabase
+      .from("case_documents")
+      .insert([
+        {
+          case_id: caseData.id,
+          file_name: file.name,
+          file_path: filePath,
+          file_type: file.type || "application/json",
+          document_type: "financial_statement",
+        },
+      ])
+      .select()
+      .single();
+
+    if (dbError || !insertedDoc) {
+      setRunningAnalysis(false);
+      setAnalysisMessage("");
+      alert(dbError?.message || "Failed to save document");
+      return;
+    }
+
+    await fetchDocuments();
+
+    setAnalysisMessage("Running financial analysis...");
+
+    const res = await fetch("/api/run-financial-analysis", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        caseId: caseData.id,
+        documentIds: [insertedDoc.id],
+      }),
+    });
+
+    const result = await res.json();
+
+    setRunningAnalysis(false);
+
+    if (!res.ok) {
+      setAnalysisMessage("");
+      alert(result.error || "Analysis failed");
+      return;
+    }
+
+    setAnalysisHtml(result.report?.html || "");
+    setAnalysisReport({
+      report_html: result.report?.html || "",
+      report_json: result.report || result,
+    });
+    setAnalysisMessage("Analysis completed successfully.");
+    event.target.value = "";
   };
 
   const handleDocumentUpload = async (
@@ -936,111 +1027,166 @@ export default function CaseDetailPage() {
 
             {activeTab === "analysis" && caseData && (
               <div className="space-y-6">
-                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-xl font-semibold text-slate-900">
-                    Bank Statement Analyzer
-                  </h2>
+                {analysisMode === "menu" && (
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setAnalysisMode("bank")}
+                      className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-cyan-300 hover:shadow-md"
+                    >
+                      <div className="mb-5 flex items-start gap-4">
+                        <div className="rounded-xl bg-cyan-50 p-3">
+                          <FileText className="h-6 w-6 text-cyan-500" />
+                        </div>
 
-                  <div className="mt-4 space-y-3">
-                    {documents
-                      .filter((doc) => doc.document_type === "bank_statement")
-                      .map((doc) => (
-                        <label
-                          key={doc.id}
-                          className="flex items-center gap-3 rounded-xl border px-4 py-3"
-                        >
-                          <input
-                            type="checkbox"
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedBankDocs((prev) => [
-                                  ...prev,
-                                  doc.id,
-                                ]);
-                              } else {
-                                setSelectedBankDocs((prev) =>
-                                  prev.filter((x) => x !== doc.id)
-                                );
-                              }
-                            }}
-                          />
-                          {doc.file_name}
-                        </label>
-                      ))}
+                        <div>
+                          <h2 className="text-xl font-semibold text-slate-900">
+                            Bank Statement Analyzer
+                          </h2>
+                          <p className="mt-1 text-sm text-slate-600">
+                            Analyze bank statement cash flow, transactions, and repayment behaviour.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                        Coming soon: PDF bank statement → AI analysis
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAnalysisMode("financial")}
+                      className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-cyan-300 hover:shadow-md"
+                    >
+                      <div className="mb-5 flex items-start gap-4">
+                        <div className="rounded-xl bg-cyan-50 p-3">
+                          <BarChart3 className="h-6 w-6 text-cyan-500" />
+                        </div>
+
+                        <div>
+                          <h2 className="text-xl font-semibold text-slate-900">
+                            Financial Statement Analyzer
+                          </h2>
+                          <p className="mt-1 text-sm text-slate-600">
+                            Upload Claude JSON output and generate financial analysis report inside this case.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+                        Current flow: JSON → HTML financial report
+                      </div>
+                    </button>
                   </div>
+                )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (selectedBankDocs.length === 0) {
-                        alert("Please select at least one bank statement.");
-                        return;
-                      }
+                {analysisMode === "financial" && (
+                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAnalysisMode("menu");
+                        setAnalysisMessage("");
+                        setAnalysisHtml("");
+                      }}
+                      className="mb-5 text-sm text-slate-600 hover:text-slate-900"
+                    >
+                      ← Back to analyzers
+                    </button>
 
-                      alert(
-                        `Running analysis for ${selectedBankDocs.length} selected document(s)`
-                      );
-                    }}
-                    className="mt-5 w-full rounded-xl bg-cyan-300 px-4 py-3 font-medium text-slate-900"
-                  >
-                    Run Analysis
-                  </button>
-                </section>
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      Financial Statement Analyzer
+                    </h2>
 
-                <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-xl font-semibold text-slate-900">
-                    Financial Statement Analyzer
-                  </h2>
+                    <p className="mt-1 text-sm text-slate-600">
+                      Upload JSON generated by Claude AI. The file will be saved to this case and analyzed automatically.
+                    </p>
 
-                  <div className="mt-4 space-y-3">
-                    {documents
-                      .filter(
-                        (doc) => doc.document_type === "financial_statement"
-                      )
-                      .map((doc) => (
-                        <label
-                          key={doc.id}
-                          className="flex items-center gap-3 rounded-xl border px-4 py-3"
-                        >
+                    <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
+                      <Upload className="mx-auto mb-4 h-10 w-10 text-slate-500" />
+
+                      <p className="text-sm font-medium text-slate-700">
+                        Upload JSON Financial Analysis
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        Supported format: JSON only
+                      </p>
+
+                      <div className="mt-5 flex justify-center">
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 shadow-sm hover:bg-slate-50">
+                          <Upload className="h-4 w-4" />
+                          {runningAnalysis ? "Processing..." : "Choose JSON File"}
+
                           <input
-                            type="checkbox"
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedFinancialDocs((prev) => [
-                                  ...prev,
-                                  doc.id,
-                                ]);
-                              } else {
-                                setSelectedFinancialDocs((prev) =>
-                                  prev.filter((x) => x !== doc.id)
-                                );
-                              }
-                            }}
+                            type="file"
+                            accept=".json,application/json"
+                            onChange={handleFinancialJsonAnalysis}
+                            disabled={runningAnalysis}
+                            className="hidden"
                           />
-                          {doc.file_name}
                         </label>
-                      ))}
-                  </div>
+                      </div>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (selectedFinancialDocs.length === 0) {
-                        alert(
-                          "Please select at least one financial statement."
-                        );
-                        return;
-                      }
+                    {analysisMessage && (
+                      <div className="mt-5 rounded-xl bg-cyan-50 px-4 py-3 text-sm text-cyan-700">
+                        {analysisMessage}
+                      </div>
+                    )}
 
-                      alert(
-                        `Running analysis for ${selectedFinancialDocs.length} selected document(s)`
-                      );
-                    }}
-                    className="mt-5 w-full rounded-xl bg-cyan-300 px-4 py-3 font-medium text-slate-900"
-                  >
-                    Run Analysis
-                  </button>
-                </section>
+                    {analysisHtml && (
+                      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="mb-4 flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-slate-900">
+                            Financial Analysis Result
+                          </h3>
+
+                          <button
+                            type="button"
+                            onClick={() => window.print()}
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+                          >
+                            Print
+                          </button>
+                        </div>
+
+                        <div
+                          className="max-h-[900px] overflow-auto rounded-xl border border-slate-200"
+                          dangerouslySetInnerHTML={{
+                            __html: analysisHtml,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {analysisMode === "bank" && (
+                  <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setAnalysisMode("menu")}
+                      className="mb-5 text-sm text-slate-600 hover:text-slate-900"
+                    >
+                      ← Back to analyzers
+                    </button>
+
+                    <h2 className="text-xl font-semibold text-slate-900">
+                      Bank Statement Analyzer
+                    </h2>
+
+                    <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                      <p className="text-sm text-slate-600">
+                        Bank statement analyzer will be connected later.
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Current priority: Financial Statement JSON → HTML result inside Analysis tab.
+                      </p>
+                    </div>
+                  </section>
+                )}
               </div>
             )}
 
