@@ -20,16 +20,9 @@ export async function POST(req: Request) {
     }
 
     const authHeader = req.headers.get("authorization");
-    const cronHeader = req.headers.get("x-vercel-cron");
 
-    if (
-      authHeader !== `Bearer ${cronSecret}` &&
-      cronHeader !== "1"
-    ) {
-      return Response.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -49,11 +42,9 @@ export async function POST(req: Request) {
     }
 
     const resend = new Resend(resendApiKey);
-
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
-    // TEST MODE: cases older than 10 minutes.
-    // Later change this back to 7 days.
+    // Reminder mode: cases older than 1 hour.
     const reminderCutoff = new Date();
     reminderCutoff.setHours(reminderCutoff.getHours() - 1);
 
