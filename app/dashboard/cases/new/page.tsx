@@ -68,9 +68,9 @@ const handleCreateCase = async (e: React.FormEvent) => {
       return;
     }
 
-      // ✅ SEND EMAIL (debug mode)
+      // ✅ SEND EMAIL immediately after case is created
       try {
-        const res = await fetch("/api/send-case-email", {
+        const res = await fetch("/api/send-case-email/send-case-email", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
