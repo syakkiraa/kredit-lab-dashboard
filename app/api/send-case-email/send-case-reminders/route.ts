@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     // TEST MODE: cases older than 10 minutes.
     // Later change this back to 7 days.
     const reminderCutoff = new Date();
-    reminderCutoff.setMinutes(reminderCutoff.getMinutes() - 1);
+    reminderCutoff.setHours(reminderCutoff.getHours() - 1);
 
     const { data: cases, error: fetchError } = await supabaseAdmin
       .from("cases")
