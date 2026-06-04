@@ -20,13 +20,14 @@ export async function POST(req: Request) {
     }
 
     const authHeader = req.headers.get("authorization");
+    const cronHeader = req.headers.get("x-vercel-cron");
 
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    if (
+      authHeader !== `Bearer ${cronSecret}` &&
+      cronHeader !== "1"
+    ) {
       return Response.json(
-        {
-          error: "Unauthorized",
-          receivedAuthHeader: authHeader,
-        },
+        { error: "Unauthorized" },
         { status: 401 }
       );
     }
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
     // TEST MODE: cases older than 10 minutes.
     // Later change this back to 7 days.
     const reminderCutoff = new Date();
-    reminderCutoff.setMinutes(reminderCutoff.getMinutes() - 10);
+    reminderCutoff.setHours(reminderCutoff.getHours() - 1);
 
     const { data: cases, error: fetchError } = await supabaseAdmin
       .from("cases")
