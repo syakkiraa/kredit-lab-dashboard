@@ -28,13 +28,18 @@ export async function POST(req: Request) {
     const resendApiKey = process.env.RESEND_API_KEY;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const consultantEmail = process.env.CONSULTANT_NOTIFY_EMAIL;
+
+    const consultantEmails =
+      process.env.CONSULTANT_NOTIFY_EMAILS
+        ?.split(",")
+        .map((email) => email.trim())
+        .filter(Boolean) || [];
 
     if (
       !resendApiKey ||
       !supabaseUrl ||
       !supabaseServiceRoleKey ||
-      !consultantEmail
+      consultantEmails.length === 0
     ) {
       return Response.json(
         {
@@ -42,7 +47,7 @@ export async function POST(req: Request) {
           hasResendApiKey: !!resendApiKey,
           hasSupabaseUrl: !!supabaseUrl,
           hasSupabaseServiceRoleKey: !!supabaseServiceRoleKey,
-          hasConsultantEmail: !!consultantEmail,
+          hasConsultantEmails: consultantEmails.length > 0,
         },
         { status: 500 }
       );
@@ -84,7 +89,7 @@ export async function POST(req: Request) {
     for (const item of cases) {
       const { data, error: emailError } = await resend.emails.send({
         from: "Capital Island <noreply@kreditlab.my>",
-        to: consultantEmail,
+        to: consultantEmails,
         subject: `Follow-up Reminder: Case ${item.case_code || item.id}`,
         html: `
           <h2>Consultant Follow-up Reminder</h2>
