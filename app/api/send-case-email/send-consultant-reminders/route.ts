@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
     // Consultant reminder: cases older than 1 day.
     const reminderCutoff = new Date();
-    reminderCutoff.setDate(reminderCutoff.getDate() - 1);
+    reminderCutoff.setMinutes(reminderCutoff.getMinutes() - 1);
 
     const { data: cases, error: fetchError } = await supabaseAdmin
       .from("cases")
