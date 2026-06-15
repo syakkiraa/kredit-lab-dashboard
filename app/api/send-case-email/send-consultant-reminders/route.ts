@@ -1,5 +1,9 @@
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
+import {
+  buildConsultantReminderSchedule,
+  wasSentOnKualaLumpurDate,
+} from "@/lib/consultant-reminder-schedule";
 
 export async function GET() {
   return Response.json({
@@ -55,30 +59,47 @@ export async function POST(req: Request) {
 
     const resend = new Resend(resendApiKey);
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
+    const schedule = buildConsultantReminderSchedule(new Date());
 
-    // Consultant reminder: cases older than 1 day.
-    const reminderCutoff = new Date();
-    reminderCutoff.setMinutes(reminderCutoff.getMinutes() - 1);
+    if (!schedule.shouldSendNow) {
+      return Response.json({
+        success: true,
+        message: "Outside consultant reminder window",
+        timeZone: "Asia/Kuala_Lumpur",
+        localDate: schedule.localDateKey,
+        sent: 0,
+      });
+    }
 
     const { data: cases, error: fetchError } = await supabaseAdmin
       .from("cases")
       .select(
         "id, case_code, client_name, company_name, email, phone, status, created_at, consultant_reminder_sent_at"
       )
-      .lte("created_at", reminderCutoff.toISOString())
-      .is("consultant_reminder_sent_at", null)
+      .lte("created_at", schedule.createdBeforeUtcIso)
       .not("email", "is", null);
 
     if (fetchError) {
       return Response.json({ error: fetchError.message }, { status: 500 });
     }
 
-    if (!cases || cases.length === 0) {
+    const eligibleCases =
+      cases?.filter(
+        (item) =>
+          !wasSentOnKualaLumpurDate(
+            item.consultant_reminder_sent_at,
+            schedule.localDateKey
+          )
+      ) || [];
+
+    if (eligibleCases.length === 0) {
       return Response.json({
         success: true,
         message: "No consultant reminders to send",
-        cutoff: reminderCutoff.toISOString(),
-        foundCases: 0,
+        cutoff: schedule.createdBeforeUtcIso,
+        localDate: schedule.localDateKey,
+        foundCases: cases?.length || 0,
+        eligibleCases: 0,
         sent: 0,
       });
     }
@@ -86,7 +107,7 @@ export async function POST(req: Request) {
     let sentCount = 0;
     const results = [];
 
-    for (const item of cases) {
+    for (const item of eligibleCases) {
       const { data, error: emailError } = await resend.emails.send({
         from: "Capital Island <noreply@kreditlab.my>",
         to: consultantEmails,
@@ -137,8 +158,10 @@ export async function POST(req: Request) {
 
     return Response.json({
       success: true,
-      cutoff: reminderCutoff.toISOString(),
+      cutoff: schedule.createdBeforeUtcIso,
+      localDate: schedule.localDateKey,
       foundCases: cases.length,
+      eligibleCases: eligibleCases.length,
       sent: sentCount,
       results,
     });
