@@ -4,6 +4,7 @@ import {
   buildConsultantReminderSchedule,
   wasSentOnKualaLumpurDate,
 } from "@/lib/consultant-reminder-schedule";
+import { buildConsultantReminderBatches } from "@/lib/consultant-reminder-recipients";
 
 export async function GET() {
   return Response.json({
@@ -33,17 +34,10 @@ export async function POST(req: Request) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    const consultantEmails =
-      process.env.CONSULTANT_NOTIFY_EMAILS
-        ?.split(",")
-        .map((email) => email.trim())
-        .filter(Boolean) || [];
-
     if (
       !resendApiKey ||
       !supabaseUrl ||
-      !supabaseServiceRoleKey ||
-      consultantEmails.length === 0
+      !supabaseServiceRoleKey
     ) {
       return Response.json(
         {
@@ -51,7 +45,6 @@ export async function POST(req: Request) {
           hasResendApiKey: !!resendApiKey,
           hasSupabaseUrl: !!supabaseUrl,
           hasSupabaseServiceRoleKey: !!supabaseServiceRoleKey,
-          hasConsultantEmails: consultantEmails.length > 0,
         },
         { status: 500 }
       );
@@ -72,9 +65,9 @@ export async function POST(req: Request) {
     }
 
     const { data: cases, error: fetchError } = await supabaseAdmin
-      .from("cases")
+        .from("cases")
       .select(
-        "id, case_code, client_name, company_name, email, phone, status, created_at, consultant_reminder_sent_at"
+        "id, case_code, client_name, company_name, email, phone, status, created_at, created_by, consultant_reminder_sent_at"
       )
       .lte("created_at", schedule.createdBeforeUtcIso)
       .not("email", "is", null);
@@ -92,6 +85,31 @@ export async function POST(req: Request) {
           )
       ) || [];
 
+    const consultantIds = [
+      ...new Set(
+        eligibleCases
+          .map((item) => item.created_by)
+          .filter((createdBy): createdBy is string => Boolean(createdBy))
+      ),
+    ];
+
+    const { data: consultantProfiles, error: profilesError } =
+      consultantIds.length === 0
+        ? { data: [], error: null }
+        : await supabaseAdmin
+            .from("profiles")
+            .select("id, full_name, email")
+            .in("id", consultantIds);
+
+    if (profilesError) {
+      return Response.json({ error: profilesError.message }, { status: 500 });
+    }
+
+    const { batches, skippedCases } = buildConsultantReminderBatches(
+      eligibleCases,
+      consultantProfiles || []
+    );
+
     if (eligibleCases.length === 0) {
       return Response.json({
         success: true,
@@ -100,38 +118,67 @@ export async function POST(req: Request) {
         localDate: schedule.localDateKey,
         foundCases: cases?.length || 0,
         eligibleCases: 0,
+        skippedCases: 0,
+        sentEmails: 0,
+        sent: 0,
+      });
+    }
+
+    if (batches.length === 0) {
+      return Response.json({
+        success: true,
+        message: "No consultant reminders with valid recipients",
+        cutoff: schedule.createdBeforeUtcIso,
+        localDate: schedule.localDateKey,
+        foundCases: cases.length,
+        eligibleCases: eligibleCases.length,
+        skippedCases,
+        sentEmails: 0,
         sent: 0,
       });
     }
 
     let sentCount = 0;
+    let sentEmails = 0;
     const results = [];
 
-    for (const item of eligibleCases) {
-      const { data, error: emailError } = await resend.emails.send({
-        from: "Capital Island <noreply@kreditlab.my>",
-        to: consultantEmails,
-        subject: `Follow-up Reminder: Case ${item.case_code || item.id}`,
-        html: `
+    for (const batch of batches) {
+      const emailHtml = `
           <h2>Consultant Follow-up Reminder</h2>
-          <p>This case has been registered for more than 1 day and may need follow-up.</p>
-
-          <p><strong>Client Name:</strong> ${item.client_name || "-"}</p>
-          <p><strong>Company:</strong> ${item.company_name || "-"}</p>
-          <p><strong>Case ID:</strong> ${item.case_code || item.id}</p>
-          <p><strong>Status:</strong> ${item.status || "New"}</p>
-          <p><strong>Client Email:</strong> ${item.email || "-"}</p>
-          <p><strong>Client Phone:</strong> ${item.phone || "-"}</p>
-
-          <br />
+          <p>Hi ${batch.consultantName}, here are your cases that have been registered for more than 1 day and may need follow-up.</p>
+          <ul>
+            ${batch.cases
+              .map(
+                (item) => `
+              <li>
+                <strong>${item.case_code || item.id}</strong><br />
+                Client: ${item.client_name || "-"}<br />
+                Company: ${item.company_name || "-"}<br />
+                Status: ${item.status || "New"}<br />
+                Client Email: ${item.email || "-"}<br />
+                Client Phone: ${item.phone || "-"}
+              </li>
+            `
+              )
+              .join("")}
+          </ul>
           <p>Please follow up with the client if needed.</p>
           <p>Capital Island Sdn Bhd</p>
-        `,
+        `;
+
+      const { data, error: emailError } = await resend.emails.send({
+        from: "Capital Island <noreply@kreditlab.my>",
+        to: [batch.consultantEmail],
+        subject: `Follow-up Reminder: ${batch.cases.length} case${
+          batch.cases.length === 1 ? "" : "s"
+        } need attention`,
+        html: emailHtml,
       });
 
       if (emailError) {
         results.push({
-          caseId: item.id,
+          consultantId: batch.consultantId,
+          consultantEmail: batch.consultantEmail,
           sent: false,
           error: emailError,
         });
@@ -139,21 +186,25 @@ export async function POST(req: Request) {
         continue;
       }
 
+      const caseIds = batch.cases.map((item) => item.id);
       const { error: updateError } = await supabaseAdmin
         .from("cases")
         .update({
           consultant_reminder_sent_at: new Date().toISOString(),
         })
-        .eq("id", item.id);
+        .in("id", caseIds);
 
       results.push({
-        caseId: item.id,
+        consultantId: batch.consultantId,
+        consultantEmail: batch.consultantEmail,
+        caseIds,
         sent: true,
         resendData: data,
         updateError: updateError?.message || null,
       });
 
-      sentCount++;
+      sentEmails++;
+      sentCount += batch.cases.length;
     }
 
     return Response.json({
@@ -162,6 +213,8 @@ export async function POST(req: Request) {
       localDate: schedule.localDateKey,
       foundCases: cases.length,
       eligibleCases: eligibleCases.length,
+      skippedCases,
+      sentEmails,
       sent: sentCount,
       results,
     });
